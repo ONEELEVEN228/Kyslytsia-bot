@@ -44,5 +44,5 @@ def handler(msg):
         bot.send_message(msg.chat.id, "Вибач, сталася помилка. Спробуй ще раз.")
 
 if __name__ == '__main__':
-    bot.remove_webhook()   # Очищуємо вебхук, щоб не було конфліктів
+    bot.remove_webhook()
     bot.infinity_polling()
