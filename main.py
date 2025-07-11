@@ -3,7 +3,6 @@ import os
 import openai
 import telebot
 
-# Налаштування
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
@@ -54,5 +53,5 @@ def message_handler(message):
         bot.send_message(message.chat.id, "Вибач, сталася помилка. Спробуй ще раз.")
 
 if __name__ == "__main__":
-    bot.remove_webhook()  # скидаємо webhook, щоб не було конфліктів
+    bot.remove_webhook()
     bot.infinity_polling()
