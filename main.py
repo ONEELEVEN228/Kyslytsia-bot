@@ -16,13 +16,7 @@ def ask_gpt(question):
     )
     try:
         resp = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.8,
-            max_tokens=400
-        )
-        return resp.choices[0].message['content'].strip()
-    except Exception:
+            
         return "Вибач, але щось пішло не так. Спробуй ще раз."
 
 @bot.message_handler(commands=['start'])
