@@ -1,69 +1,52 @@
 import os
 import logging
-import openai
 import telebot
+import openai
 
-# Логи для Railway
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Змінні середовища
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Отримуємо токени з змінних середовища
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
-    raise ValueError("❌ Відсутні TELEGRAM_TOKEN або OPENAI_API_KEY у змінних середовища")
+    raise ValueError("Відсутні TELEGRAM_TOKEN або OPENAI_API_KEY у змінних середовища")
 
+# Ініціалізація API ключів
 openai.api_key = OPENAI_API_KEY
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-# Вітання
-@bot.message_handler(commands=["start"])
-def send_welcome(message):
-    bot.send_message(
-        message.chat.id,
-        "Привіт! Я Kyslytsia Bot – твій помічник з риболовлі. 🎣\n\nНапиши, наприклад:\n"
-        "- Яку приманку взяти на щуку?\n"
-        "- Як ловити судака на джиг?"
+logging.basicConfig(level=logging.INFO)
+
+def ask_gpt(question):
+    prompt = (
+        "Ти — AI-асистент з риболовлі для України. "
+        "Відповідай українською, коротко і по суті.\n"
+        f"Питання: {question}\nВідповідь:"
     )
-
-# Обробка повідомлень
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
     try:
-        bot.send_chat_action(message.chat.id, "typing")
-        prompt = (
-            "Ти — AI-асистент з риболовлі для України. "
-            "Відповідай українською, коротко, чітко та по суті.\n"
-            f"Питання: {message.text}\nВідповідь:"
-        )
-
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Можеш змінити на gpt-4, якщо підтримується
+            model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
+            temperature=0.8,
             max_tokens=400
         )
-
-        answer = response.choices[0].message.content.strip()
-        bot.send_message(message.chat.id, answer)
-
-    except openai.error.OpenAIError as e:
-        logger.error("❌ OpenAI API error: %s", str(e))
-        bot.send_message(message.chat.id, "Вибач, щось пішло не так із OpenAI. 🙁")
-
-    except telebot.apihelper.ApiTelegramException as e:
-        logger.error("❌ Telegram API error: %s", str(e))
-        bot.send_message(message.chat.id, "Сталася помилка Telegram API. 🧯")
-
+        return response.choices[0].message['content'].strip()
     except Exception as e:
-        logger.error("❌ Unexpected error: %s", str(e))
-        bot.send_message(message.chat.id, "Непередбачувана помилка 😥")
+        logging.error(f"OpenAI API error: {e}")
+        return "Вибач, сталася помилка при обробці запиту."
 
-# Запуск
-if __name__ == "__main__":
-    logger.info("🚀 Kyslytsia Bot стартує...")
-    try:
-        bot.infinity_polling(timeout=60, long_polling_timeout=10)
-    except Exception as e:
-        logger.critical("❌ Бот зупинився через критичну помилку: %s", str(e))
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.chat.id,
+        "Привіт! Я Kyslytsia Bot – твій помічник з риболовлі.\n"
+        "Напиши мені своє питання про риболовлю, і я відповім."
+    )
+
+@bot.message_handler(func=lambda m: True)
+def handle_message(message):
+    bot.send_chat_action(message.chat.id, 'typing')
+    answer = ask_gpt(message.text)
+    bot.send_message(message.chat.id, answer)
+
+if __name__ == '__main__':
+    logging.info("Запускаю Kyslytsia Bot...")
+    bot.infinity_polling()
