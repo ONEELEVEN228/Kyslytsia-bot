@@ -18,9 +18,14 @@ def start(m):
     bot.send_message(m.chat.id, "Привіт! Я Kyslytsia Bot 😊")
 
 @bot.message_handler(func=lambda m: True)
-def h(m):
-    bot.send_chat_action(m.chat.id, "typing")
-    bot.send_message(m.chat.id, ask_gpt(m.text))
+def handler(msg):
+    try:
+        bot.send_chat_action(msg.chat.id, 'typing')
+        reply = ask_gpt(msg.text)
+        bot.send_message(msg.chat.id, reply)
+    except Exception as e:
+        print(f"Handler error: {e}")
+        bot.send_message(msg.chat.id, "Вибач, сталася помилка. Спробуй ще раз.")
 
 if __name__=="__main__":
     bot.infinity_polling()
