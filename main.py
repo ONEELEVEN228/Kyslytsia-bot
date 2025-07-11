@@ -1,52 +1,59 @@
-import os
 import logging
-import telebot
 import openai
+import telebot
+import os
 
-# Отримуємо токени з змінних середовища
+logging.basicConfig(level=logging.INFO)
+
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
     raise ValueError("Відсутні TELEGRAM_TOKEN або OPENAI_API_KEY у змінних середовища")
 
-# Ініціалізація API ключів
 openai.api_key = OPENAI_API_KEY
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-
-logging.basicConfig(level=logging.INFO)
 
 def ask_gpt(question):
     prompt = (
         "Ти — AI-асистент з риболовлі для України. "
-        "Відповідай українською, коротко і по суті.\n"
+        "Відповідай українською, коротко, чітко та по суті.\n"
         f"Питання: {question}\nВідповідь:"
     )
     try:
-        response = openai.ChatCompletion.create(
+        resp = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.8,
             max_tokens=400
         )
-        return response.choices[0].message['content'].strip()
+        return resp.choices[0].message['content'].strip()
     except Exception as e:
-        logging.error(f"OpenAI API error: {e}")
-        return "Вибач, сталася помилка при обробці запиту."
+        logging.error(f"OpenAI error: {e}")
+        return "Вибач, щось пішло не так. Спробуй ще раз."
 
 @bot.message_handler(commands=['start'])
-def start(message):
-    bot.send_message(message.chat.id,
+def start(msg):
+    bot.send_message(msg.chat.id,
         "Привіт! Я Kyslytsia Bot – твій помічник з риболовлі.\n"
-        "Напиши мені своє питання про риболовлю, і я відповім."
+        "Напиши, наприклад:\n"
+        "- Яку приманку взяти на щуку?\n"
+        "- Як ловити судака на джиг?"
     )
 
 @bot.message_handler(func=lambda m: True)
-def handle_message(message):
-    bot.send_chat_action(message.chat.id, 'typing')
-    answer = ask_gpt(message.text)
-    bot.send_message(message.chat.id, answer)
+def handler(msg):
+    try:
+        bot.send_chat_action(msg.chat.id, 'typing')
+        reply = ask_gpt(msg.text)
+        bot.send_message(msg.chat.id, reply)
+    except Exception as e:
+        logging.error(f"Telegram error: {e}")
+        bot.send_message(msg.chat.id, "Сталася помилка. Спробуйте пізніше.")
 
 if __name__ == '__main__':
-    logging.info("Запускаю Kyslytsia Bot...")
-    bot.infinity_polling()
+    try:
+        logging.info("Запускаю Kyslytsia Bot...")
+        bot.infinity_polling()
+    except Exception as e:
+        logging.error(f"Polling stopped with error: {e}")
