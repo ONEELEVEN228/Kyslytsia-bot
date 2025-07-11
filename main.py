@@ -1,59 +1,42 @@
+import os
 import logging
 import openai
-import telebot
-import os
+from telegram import Update
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 
 logging.basicConfig(level=logging.INFO)
 
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
-if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
-    raise ValueError("Відсутні TELEGRAM_TOKEN або OPENAI_API_KEY у змінних середовища")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 openai.api_key = OPENAI_API_KEY
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-def ask_gpt(question):
-    prompt = (
-        "Ти — AI-асистент з риболовлі для України. "
-        "Відповідай українською, коротко, чітко та по суті.\n"
-        f"Питання: {question}\nВідповідь:"
-    )
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_question = update.message.text
+    user_id = update.effective_user.id
+    logging.info(f"User {user_id} asked: {user_question}")
+
     try:
-        resp = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.8,
-            max_tokens=400
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Ти дружній Telegram-бот, що відповідає українською."},
+                {"role": "user", "content": user_question},
+            ],
+            max_tokens=500,
+            temperature=0.7,
         )
-        return resp.choices[0].message['content'].strip()
+        reply = response.choices[0].message.content.strip()
     except Exception as e:
-        logging.error(f"OpenAI error: {e}")
-        return "Вибач, щось пішло не так. Спробуй ще раз."
+        logging.error(f"OpenAI API error: {e}")
+        reply = "Вибач, сталася помилка при зверненні до ChatGPT 😔"
 
-@bot.message_handler(commands=['start'])
-def start(msg):
-    bot.send_message(msg.chat.id,
-        "Привіт! Я Kyslytsia Bot – твій помічник з риболовлі.\n"
-        "Напиши, наприклад:\n"
-        "- Яку приманку взяти на щуку?\n"
-        "- Як ловити судака на джиг?"
-    )
+    await update.message.reply_text(reply)
 
-@bot.message_handler(func=lambda m: True)
-def handler(msg):
-    try:
-        bot.send_chat_action(msg.chat.id, 'typing')
-        reply = ask_gpt(msg.text)
-        bot.send_message(msg.chat.id, reply)
-    except Exception as e:
-        logging.error(f"Telegram error: {e}")
-        bot.send_message(msg.chat.id, "Сталася помилка. Спробуйте пізніше.")
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.run_polling()
 
-if __name__ == '__main__':
-    try:
-        logging.info("Запускаю Kyslytsia Bot...")
-        bot.infinity_polling()
-    except Exception as e:
-        logging.error(f"Polling stopped with error: {e}")
+if __name__ == "__main__":
+    main()
